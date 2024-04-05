@@ -1,0 +1,28 @@
+kind: StatefulSet
+apiVersion: apps/v1 
+metadata: 
+  name: backend 
+  labels: 
+    zone: dev 
+    version: v1 
+spec:
+  selector:
+    matchLabels:
+      app: backend
+  serviceName: backend-svc
+  replicas: 4
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+
+      containers: 
+      - name: backend 
+        image: localhost:5000/backend:latest 
+        ports: 
+        - containerPort: 3333 
+        resources: 
+          limits: 
+            memory: 128Mi 
+            cpu: 0.5 

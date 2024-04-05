@@ -1,0 +1,11 @@
+kind: Service 
+apiVersion: v1 
+metadata: 
+  name: cloud-lb 
+spec: 
+  type: LoadBalancer
+  ports: 
+  - port: 9000
+    targetPort: 3333
+  selector:
+    app: backend 

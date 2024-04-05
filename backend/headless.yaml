@@ -1,0 +1,13 @@
+kind: Service 
+apiVersion: v1 
+metadata: 
+  name: backend-svc
+  labels:
+    app: backend
+spec: 
+  ports:
+  - port: 3333
+    name: backend
+  clusterIP: None
+  selector:
+    app: backend 
