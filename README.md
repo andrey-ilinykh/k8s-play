@@ -14,6 +14,8 @@ k proxy --port=8080
 
 minikube tunnel
 
+kubectl create clusterrolebinding default-view --clusterrole=view --serviceaccount=default:default
+
 openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
   -nodes -keyout mydomain.com.key -out mydomain.com.crt -extensions san -config \
   <(echo "[req]"; 
