@@ -1,10 +1,21 @@
 ## Setup local registry
 
+We need a registry to push images to k8s. minikube allows to use insecure registry:
+
 `minikube start --insecure-registry "10.0.0.0/24"`
+
+Enable the registry addon to allow Docker to push images to minikube's registry:
 
 `minikube addons enable registry`
 
-docker run --rm -it --network=host alpine ash -c "apk add socat && socat TCP-LISTEN:5000,reuseaddr,fork TCP:$(minikube ip):5000"
+In a separate terminal, redirect port 5000 from Docker to port 5000 on your host. 
+`docker run --rm -it --network=host alpine ash -c "apk add socat && socat TCP-LISTEN:5000,reuseaddr,fork TCP:$(minikube ip):5000"`
+
+
+Verify that you are able to access the minikube registry by running:
+
+`curl http://localhost:5000/v2/_catalog`
+
 
 
 kubectl port-forward --namespace kube-system service/registry 5000:80
@@ -12,7 +23,10 @@ kubectl port-forward --namespace kube-system service/registry 5000:80
 run API proxy
 k proxy --port=8080
 
+accsess backend from the host (for debuging)
+k apply -f svc.yaml
 minikube tunnel
+
 
 kubectl create clusterrolebinding default-view --clusterrole=view --serviceaccount=default:default
 
