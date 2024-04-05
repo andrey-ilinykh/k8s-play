@@ -15,18 +15,7 @@ data:
         default upgrade;
         '' close;
       }
-      #log_format  main
-      #        'remote_addr:$remote_addr\t'
-      #        'time_local:$time_local\t'
-      #        'method:$request_method\t'
-      #        'uri:$request_uri\t'
-      #        'host:$host\t'
-      #        'status:$status\t'
-      #        'bytes_sent:$body_bytes_sent\t'
-      #        'referer:$http_referer\t'
-      #        'useragent:$http_user_agent\t'
-      #        'forwardedfor:$http_x_forwarded_for\t'
-      #        'request_time:$request_time';
+      
 
       access_log	/var/log/nginx/access.log;
       server {
@@ -36,12 +25,12 @@ data:
           server_name  www.mydomain.com;
           ssl_certificate /etc/cert/cert.pem;
           ssl_certificate_key /etc/cert/key.pem;
-          #location / {
-          #    root   /html;
-          #    index  index.html index.htm;
-          #}
-
           location / {
+              root   /html;
+              index  index.html index.html;
+          }
+
+          location /ws/ {
             add_header Access-Control-Allow-Origin *;
             proxy_set_header        Origin "";
             proxy_set_header        Host $host;

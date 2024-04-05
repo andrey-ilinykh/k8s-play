@@ -27,8 +27,12 @@ accsess backend from the host (for debuging)
 k apply -f svc.yaml
 minikube tunnel
 
-
+## The router
 kubectl create clusterrolebinding default-view --clusterrole=view --serviceaccount=default:default
+
+create configmap for nginx. 
+
+
 
 openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
   -nodes -keyout mydomain.com.key -out mydomain.com.crt -extensions san -config \

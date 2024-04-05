@@ -2,7 +2,7 @@
 
 set -e
 
-CGO_ENABLED=0 go build -o main .
+GOOS=linux CGO_ENABLED=0 go build -o main .
 
 docker build -t localhost:5000/router .
 
