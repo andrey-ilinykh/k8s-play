@@ -23,16 +23,22 @@ kubectl port-forward --namespace kube-system service/registry 5000:80
 run API proxy
 k proxy --port=8080
 
-accsess backend from the host (for debuging)
+access backend from the host (for debugging)
 k apply -f svc.yaml
 minikube tunnel
 
 ## The router
+create a role 
 kubectl create clusterrolebinding default-view --clusterrole=view --serviceaccount=default:default
 
-create configmap for nginx. 
+create configmap for nginx. Assuming you are in the parent folder run.
 
+k create configmap nginx-tls --from-file=cert/cert
 
+cert/cert folder contains the certificate and the private key. This is not good practice to use configmap for sensitive information. It is acceptable for prototype only.
+
+in router folder
+k apply -f overwriting.yaml
 
 openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 \
   -nodes -keyout mydomain.com.key -out mydomain.com.crt -extensions san -config \
