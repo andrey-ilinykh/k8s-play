@@ -3,4 +3,4 @@ kind: ConfigMap
 metadata:
   name: overwriting
 data:
-  ns-0: "backend-0"
+  ns-0: "backend-2"

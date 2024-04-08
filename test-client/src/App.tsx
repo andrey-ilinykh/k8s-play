@@ -1,22 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import logo from './logo.svg';
 import './App.css';
-//import useWebSocket from 'react-use-websocket';
 
-//const ws = new WebSocket('wss://www.mydomain.com/ws/ns-02')
 
 type ServerMessage = { server: string, counter: number, ns: string, router: string }
 
 const isServerMessage = (m: any): m is ServerMessage => "server" in m && "ns" in m
 
 type ConnectionState = { server: string, ns: string, counter: number, router: string, close: boolean }
+type ConnectionStateSocket = { state: ConnectionState, socket: WebSocket }
 
-var connMap = new Map<number, ConnectionState>();
 
-const createConnection = (cid: number) => () => {
-  const ns = "ns-" + cid % 16
-  const socket = new WebSocket('wss://www.mydomain.com/ws/' + ns);
-
+const mkConnection = (cs: ConnectionState) => {
+  const socket = new WebSocket('wss://www.mydomain.com/ws/' + cs.ns);
   socket.addEventListener('open', function (event) {
     console.log('connection made to server:', event);
   });
@@ -24,57 +20,62 @@ const createConnection = (cid: number) => () => {
   socket.addEventListener('close', function (event) {
     console.log('connection closed:', event);
     socket.close();
-    setTimeout(createConnection(cid), 1000);  // reconnect here
   });
 
   socket.addEventListener('message', function (event) {
     const msg = JSON.parse(event.data)
     if (isServerMessage(msg)) {
-      const sm = connMap.get(cid) || { server: msg.server, counter: 0, ns: msg.ns, router: msg.router, close: false };
-      sm.counter = 0
-      sm.server = msg.server
-      sm.router = msg.router
-      connMap = connMap.set(cid, sm)
-      if (sm.close) {
-        sm.close = false
-        sm.counter = 200
-        socket.close()
-        createConnection(cid)
-        return
-      }
+
+      cs.counter = 0
+      cs.server = msg.server
+      cs.router = msg.router
       socket.send("{}")
-      // if ( msg.counter < 50){
-      //   socket.send("{}")  
-
-      // } else {
-      //   sm.counter = 200
-      // }
-
 
     }
-    return socket
   }
+  )
+  return socket
+}
 
-  );
 
-};
 const nsNumber = 32
 
 const servers = ["backend-0", "backend-1", "backend-2", "backend-3",]
 const nss = Array.from(Array(nsNumber).keys())
 
-nss.map(cid => createConnection(cid)())
 
+const model0: ConnectionStateSocket[] = nss.map(n => {
+  let ns = "ns-" + n
+  let state = {
+    ns: ns,
+    server: "",
+    counter: 0,
+    router: "",
+    close: false
+  }
+  return {
+    state: state,
+    socket: mkConnection(state)
+  }
+}
+)
 function App() {
+  const [model, setModel] = useState(model0)
 
-  const getConnMap = () => connMap
-  const [time, setTime] = useState(Date.now());
-  const updateConnMap = () => {
+  const updateModel = () => {
 
-    getConnMap().forEach((ss, cid) => ss.counter < 100 ? ss.counter = ss.counter + 1 : ss.counter)
+    model.forEach(css => {
+      let cs = css.state
+      cs.counter += 1
+      if (cs.counter > 10) {
+        css.socket.close()
+        css.socket = mkConnection(cs)
+      }
+    })
+    setModel(Object.assign([], model))
   }
   useEffect(() => {
-    const interval = setInterval(() => { updateConnMap(); setTime(Date.now()) }, 1000);
+    const interval = setInterval(() => { updateModel(); }, 1000);
     return () => {
 
       clearInterval(interval);
@@ -91,29 +92,22 @@ function App() {
 
       </tr>)
   }
-  const renderCell = (idx: number, server: string) => {
+  const renderCell = (idx: number, cs: ConnectionState, server: string) => {
 
-    let cs = connMap.get(idx)
     const mkText = (cs: ConnectionState) => {
       let arr = cs.router.split('-')
       let rid = arr.length === 3 ? arr[2] : "Bad router"
-      if (cs.server == server)
+      if (cs.server === server)
         return rid
-      // if(cs.counter < 2 && server === cs.server)
-      //   return rid
-      // if(cs.counter < 10 && server === cs.server)
-      //   return rid
 
-      // if(cs.counter > 100 && server === cs.server)
-      //   return rid
       return ""
     }
     const mkColor = (cs: ConnectionState) => {
       if (cs.counter < 2 && server === cs.server)
         return "lightgreen"
-      if (cs.counter < 10 && server === cs.server)
+      if (cs.counter < 5 && server === cs.server)
         return "yellow"
-      if (cs.counter > 100 && server === cs.server)
+      if (cs.counter >= 5 && server === cs.server)
         return "red"
       return "white"
     }
@@ -127,13 +121,14 @@ function App() {
     }} >{txt}</td>)
   }
 
-  const renderRow = (idx: number) => {
-    const markClose = () => {
-      let cs = getConnMap().get(idx)
-      if (cs !== undefined) {
-        cs.close = true
-        cs.counter = 200
-      }
+  const renderRow = (idx: number, css: ConnectionStateSocket) => {
+
+    let cs = css.state
+    const close = () => {
+      css.socket.close()
+      css.socket = mkConnection(cs)
+      cs.counter = 6
+      setModel(Object.assign([], model))
     }
     return (
       <tr>
@@ -149,8 +144,8 @@ function App() {
             'minWidth': '6em'
           }
         } >{"ns-" + idx % 16}</td>
-        {servers.map(s => renderCell(idx, s))}
-        <td><button onClick={markClose}>Close</button></td>
+        {servers.map(s => renderCell(idx, cs, s))}
+        <td><button onClick={close}>Close</button></td>
       </tr>
     )
   }
@@ -161,7 +156,7 @@ function App() {
 
         <table>
           {renderHeader()}
-          {nss.map(idx => renderRow(idx))}
+          {nss.map(idx => renderRow(idx, model[idx]))}
         </table>
       </div>
     )

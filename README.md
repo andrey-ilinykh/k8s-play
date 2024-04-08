@@ -1,6 +1,12 @@
-## Setup local registry
+## k8s based Router demo
 
-We need a registry to push images to k8s. minikube allows to use insecure registry:
+This repo contains the prototype of the system routing requests to the backend based on hash value of the destination. This routing could be overwritten by rules stored in k8s config map.
+The application has two components - StateFull set of pods (backend), the router pod. The router has two containers - nginx which terminates SSL and then forwards data to local port. Another container, router itself, listens on this port. The router forwards data to the backend pod. It selects right destination using simple hashing of namespace (parameter of URL). On the top of the hashing there is a table keeping overwriting rules. These rules are stored in ConfigMap. The router listens for changes of this resource nad every time the mapping gets changed the router updates
+routing logic.
+
+### Setup local registry
+To run it locally you need to install minikube and docker.
+You need a local registry to push images to k8s. minikube allows to use insecure registry:
 
 `minikube start --insecure-registry "10.0.0.0/24"`
 
@@ -9,23 +15,68 @@ Enable the registry addon to allow Docker to push images to minikube's registry:
 `minikube addons enable registry`
 
 In a separate terminal, redirect port 5000 from Docker to port 5000 on your host. 
+
 `docker run --rm -it --network=host alpine ash -c "apk add socat && socat TCP-LISTEN:5000,reuseaddr,fork TCP:$(minikube ip):5000"`
 
+
+Use kubectl port-forward to map your local workstation to the minikube vm
+
+`kubectl port-forward --namespace kube-system service/registry 5000:80`
 
 Verify that you are able to access the minikube registry by running:
 
 `curl http://localhost:5000/v2/_catalog`
 
+### Backend
 
+Backend app is located in backend folder. It is a simple app which accepts websocket connection and sends back simple JSON structure containing the pod name, namespace name and counter. `build.sh` script builds the app and pushes it to the registry. So, make backend the current directory and run
 
-kubectl port-forward --namespace kube-system service/registry 5000:80
+`build.sh`
+
+`kubectl apply -f backend.yaml`
+
+`kubectl get pods`
+ 
+It gives you something like this
+```
+NAME                     READY   STATUS    RESTARTS        AGE
+backend-0                1/1     Running   0               3d14h
+backend-1                1/1     Running   0               3d14h
+backend-2                1/1     Running   0               3d14h
+backend-3                1/1     Running   0               3d14h
+```
+Create headless service. It will register backend pods in DNS
+`kubectl apply -f headless.yaml`
+
+Next step is optional. You can create load balancer and access backend from your host.
+`kubectl apply -f svc.yaml`
+`kubectl get svc` will show this line
+
+```
+NAME          TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)                      AGE
+...
+cloud-lb      LoadBalancer   10.103.79.71   <EXT-IP>     9000:30825/TCP               3d
+...
+```
+Now you have to run `minikube tunnel` in separate console. It should ask you for password eventually.
+Any command line websocket client will give you:
+
+> websocat ws://localhost:9000/ws/ns-01
+{"server":"backend-0","counter":1,"ns":"ns-01"}
+{"server":"backend-0","counter":2,"ns":"ns-01"}
+...
+You bypass the router and connect to the backend directly.
+
+### The router
+
+Now let's run the router. 
 
 run API proxy
 k proxy --port=8080
 
 access backend from the host (for debugging)
-k apply -f svc.yaml
-minikube tunnel
+
+
 
 ## The router
 create a role 

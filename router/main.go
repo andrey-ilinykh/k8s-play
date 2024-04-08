@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -31,6 +32,14 @@ type Proxy struct {
 type Destination struct {
 	name      string
 	proxyList []*Proxy
+}
+
+func (d Destination) GoString() string {
+	return fmt.Sprintf("Dst(%s, %#v)", strings.Split(d.name, ".")[0], d.proxyList)
+}
+
+func (p Proxy) GoString() string {
+	return fmt.Sprintf("Proxy(%s, %s)", p.ns, strings.Split(p.dest, ".")[0])
 }
 
 func (d *Destination) addProxy(p *Proxy) {
@@ -79,15 +88,15 @@ var (
 )
 
 // func manager(dstChan chan chan string, npChan chan *Proxy, errChan chan *Proxy, mapChan <-chan map[string]string) {
-func manager(mapChan <-chan map[string]string) (chan chan string, chan *Proxy, chan *Proxy) {
+func manager(ovwChan <-chan map[string]string) (chan chan string, chan *Proxy, chan *Proxy) {
 	dstChan := make(chan chan string)
 	npChan := make(chan *Proxy)
 	errChan := make(chan *Proxy)
 
 	proxyMap := make(map[string]Destination)
-	oMap := make(map[string]string)
+	ovwMap := make(map[string]string)
 	destName := func(ns string) string {
-		if dst, ok := oMap[ns]; ok {
+		if dst, ok := ovwMap[ns]; ok {
 			return fmt.Sprintf("%s%s", dst, dstDomain)
 
 		}
@@ -118,15 +127,15 @@ func manager(mapChan <-chan map[string]string) (chan chan string, chan *Proxy, c
 				ns := <-dst
 				dst <- destName(ns)
 
-			case m := <-mapChan:
-				oMap = m
+			case m := <-ovwChan:
+				ovwMap = m
 				newMap, dsts := filterProxy()
-				fmt.Printf("mapChan %v, %v\n", newMap, dsts)
+				//fmt.Printf("mapChan %v, %v\n", newMap, dsts)
 				proxyMap = newMap
 				for _, dst := range dsts {
 					dst.close()
 				}
-				fmt.Printf("Got new map: %v\n", oMap)
+				fmt.Printf("Got new overwrite map: %v\n", ovwMap)
 
 			case np := <-npChan:
 				// there is chance that overwriting map got changed and the destination is not valid anymore
@@ -135,7 +144,7 @@ func manager(mapChan <-chan map[string]string) (chan chan string, chan *Proxy, c
 					dst.name = np.dest
 					dst.addProxy(np)
 					proxyMap[np.ns] = dst
-					fmt.Printf("New proxy created %v. %v\n", np, proxyMap)
+					fmt.Printf("New proxy created %#v. %#v\n", np, proxyMap)
 				} else {
 					np.Close()
 				}
@@ -143,12 +152,12 @@ func manager(mapChan <-chan map[string]string) (chan chan string, chan *Proxy, c
 			case ep := <-errChan:
 				dst, ok := proxyMap[ep.ns]
 				if ok {
-					fmt.Printf("slice length= %d\n", len(dst.proxyList))
+					//fmt.Printf("slice length= %d\n", len(dst.proxyList))
 					dst.removeProxy(ep)
 					if dst.isEmpty() {
 						delete(proxyMap, ep.ns)
 					}
-					fmt.Printf("Proxy %v removed. %v\n", ep, proxyMap)
+					fmt.Printf("Proxy %#v removed. Dst map %#v\n", ep, proxyMap)
 					ep.Close()
 				}
 
